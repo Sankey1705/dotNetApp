@@ -1,19 +1,120 @@
-# Starter pipeline
-# Start with a minimal pipeline that you can customize to build and deploy your code.
-# Add steps that build, run tests, deploy, and more:
-# https://aka.ms/yaml
+# ============================================================
+# azure-pipelines.yml
+# Author  : Sanke Wadbudhe
+# Project : DemoAzApp
+# ============================================================
 
 trigger:
-- main
+  branches:
+    include:
+      - main
 
 pool:
-  vmImage: ubuntu-latest
+  vmImage: 'ubuntu-latest'
 
-steps:
-- script: echo Hello, world!
-  displayName: 'Run a one-line script'
+variables:
+  buildConfiguration: 'Release'
+  dotnetVersion: '8.x'
+  projectPath: 'DemoAzApp/DemoAzApp.csproj'
 
-- script: |
-    echo Add other tasks to build, test, and deploy your project.
-    echo See https://aka.ms/yaml
-  displayName: 'Run a multi-line script'
+stages:
+
+# ── CI: Build ────────────────────────────────────────────────
+- stage: Build
+  displayName: 'CI — Build and Publish'
+  jobs:
+  - job: BuildJob
+    displayName: 'Restore, Build, Publish'
+    steps:
+
+    - task: UseDotNet@2
+      displayName: 'Install .NET 8'
+      inputs:
+        version: $(dotnetVersion)
+        includePreviewVersions: false
+
+    - task: DotNetCoreCLI@2
+      displayName: 'Restore packages'
+      inputs:
+        command: 'restore'
+        projects: '**/*.csproj'
+
+    - task: DotNetCoreCLI@2
+      displayName: 'Build'
+      inputs:
+        command: 'build'
+        projects: $(projectPath)
+        arguments: '--configuration $(buildConfiguration) --no-restore'
+
+    - task: DotNetCoreCLI@2
+      displayName: 'Publish'
+      inputs:
+        command: 'publish'
+        publishWebProjects: false
+        projects: $(projectPath)
+        arguments: '--configuration $(buildConfiguration) --output $(Build.ArtifactStagingDirectory)'
+        zipAfterPublish: true
+
+    - task: PublishPipelineArtifact@1
+      displayName: 'Upload artifact'
+      inputs:
+        targetPath: '$(Build.ArtifactStagingDirectory)'
+        artifactName: 'drop'
+
+# ── CD: Deploy to Dev ────────────────────────────────────────
+- stage: DeployDev
+  displayName: 'CD — Deploy to Dev'
+  dependsOn: Build
+  condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
+  jobs:
+  - deployment: DeployToDev
+    environment: 'dev'
+    pool:
+      vmImage: 'ubuntu-latest'
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+          - task: DownloadPipelineArtifact@2
+            displayName: 'Download artifact'
+            inputs:
+              artifactName: 'drop'
+              targetPath: '$(Pipeline.Workspace)/drop'
+
+          - task: AzureFunctionApp@2
+            displayName: 'Deploy to func-sankewadbudhe-dev'
+            inputs:
+              azureSubscription: 'azure-sc-sankewadbudhe'
+              appType: 'functionApp'
+              appName: 'func-sankewadbudhe-dev'
+              package: '$(Pipeline.Workspace)/drop/**/*.zip'
+              deploymentMethod: 'auto'
+
+# ── CD: Deploy to Production ─────────────────────────────────
+- stage: DeployProd
+  displayName: 'CD — Deploy to Production'
+  dependsOn: DeployDev
+  condition: succeeded()
+  jobs:
+  - deployment: DeployToProd
+    environment: 'production'
+    pool:
+      vmImage: 'ubuntu-latest'
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+          - task: DownloadPipelineArtifact@2
+            displayName: 'Download artifact'
+            inputs:
+              artifactName: 'drop'
+              targetPath: '$(Pipeline.Workspace)/drop'
+
+          - task: AzureFunctionApp@2
+            displayName: 'Deploy to func-sankewadbudhe-prod'
+            inputs:
+              azureSubscription: 'azure-sc-sankewadbudhe'
+              appType: 'functionApp'
+              appName: 'func-sankewadbudhe-prod'
+              package: '$(Pipeline.Workspace)/drop/**/*.zip'
+              deploymentMethod: 'auto'
