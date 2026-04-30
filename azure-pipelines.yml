@@ -24,14 +24,12 @@ stages:
   displayName: 'CI — Build and Publish'
   jobs:
   - job: BuildJob
-    displayName: 'Restore, Build, Publish'
     steps:
 
     - task: UseDotNet@2
       displayName: 'Install .NET 8'
       inputs:
         version: $(dotnetVersion)
-        includePreviewVersions: false
 
     - task: DotNetCoreCLI@2
       displayName: 'Restore packages'
@@ -65,7 +63,7 @@ stages:
 - stage: DeployDev
   displayName: 'CD — Deploy to Dev'
   dependsOn: Build
-  condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
+  condition: succeeded()
   jobs:
   - deployment: DeployToDev
     environment: 'dev'
@@ -87,34 +85,5 @@ stages:
               azureSubscription: 'azure-sc-sankewadbudhe'
               appType: 'functionApp'
               appName: 'func-sankewadbudhe-dev'
-              package: '$(Pipeline.Workspace)/drop/**/*.zip'
-              deploymentMethod: 'auto'
-
-# ── CD: Deploy to Production ─────────────────────────────────
-- stage: DeployProd
-  displayName: 'CD — Deploy to Production'
-  dependsOn: DeployDev
-  condition: succeeded()
-  jobs:
-  - deployment: DeployToProd
-    environment: 'production'
-    pool:
-      vmImage: 'ubuntu-latest'
-    strategy:
-      runOnce:
-        deploy:
-          steps:
-          - task: DownloadPipelineArtifact@2
-            displayName: 'Download artifact'
-            inputs:
-              artifactName: 'drop'
-              targetPath: '$(Pipeline.Workspace)/drop'
-
-          - task: AzureFunctionApp@2
-            displayName: 'Deploy to func-sankewadbudhe-prod'
-            inputs:
-              azureSubscription: 'azure-sc-sankewadbudhe'
-              appType: 'functionApp'
-              appName: 'func-sankewadbudhe-prod'
               package: '$(Pipeline.Workspace)/drop/**/*.zip'
               deploymentMethod: 'auto'
