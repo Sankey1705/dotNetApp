@@ -84,6 +84,6 @@ stages:
             inputs:
               azureSubscription: 'azure-sc-sankewadbudhe'
               appType: 'functionApp'
-              appName: 'func-sankewadbudhe-dev'
+              appName: 'dotnetprotfilo'
               package: '$(Pipeline.Workspace)/drop/**/*.zip'
               deploymentMethod: 'auto'
