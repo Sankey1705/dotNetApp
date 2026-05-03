@@ -1,7 +1,7 @@
 # ============================================================
 # azure-pipelines.yml
 # Author  : Sanke Wadbudhe
-# Project : DemoAzApp
+# Project : DemoAzApp - Azure Function App
 # ============================================================
 
 trigger:
@@ -80,9 +80,9 @@ stages:
               targetPath: '$(Pipeline.Workspace)/drop'
 
           - task: AzureFunctionApp@2
-            displayName: 'Deploy to func-sankewadbudhe-dev'
+            displayName: 'Deploy to dotnetprotfilo'
             inputs:
-              azureSubscription: 'azure-sc-sankewadbudhe'
+              azureSubscription: 'azure-sc'
               appType: 'functionApp'
               appName: 'dotnetprotfilo'
               package: '$(Pipeline.Workspace)/drop/**/*.zip'
